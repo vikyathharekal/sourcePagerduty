@@ -196,6 +196,66 @@ definitions:
         type: InlineSchemaLoader
         schema:
           $ref: "#/schemas/priorities"
+    service_analytics:
+      type: DeclarativeStream
+      name: service_analytics
+      primary_key:
+        - service_id
+        - time_period
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /analytics/metrics/incidents/services
+          http_method: POST
+          request_body_json:
+            filters:
+              created_at_start: "{{ config.get('start_date', '2024-01-01T00:00:00Z') }}"
+              created_at_end: "{{ config.get('end_date', '2024-12-31T23:59:59Z') }}"
+              urgency: "{{ config.get('urgency', None) }}"
+              major: "{{ config.get('major_incidents_only', None) }}"
+            aggregate_unit: "{{ config.get('aggregate_unit', 'day') }}"
+            time_zone: "{{ config.get('time_zone', 'Etc/UTC') }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/service_analytics"
+    team_analytics:
+      type: DeclarativeStream
+      name: team_analytics
+      primary_key:
+        - team_id
+        - time_period
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /analytics/metrics/incidents/teams
+          http_method: POST
+          request_body_json:
+            filters:
+              created_at_start: "{{ config.get('start_date', '2024-01-01T00:00:00Z') }}"
+              created_at_end: "{{ config.get('end_date', '2024-12-31T23:59:59Z') }}"
+              urgency: "{{ config.get('urgency', None) }}"
+              major: "{{ config.get('major_incidents_only', None) }}"
+            aggregate_unit: "{{ config.get('aggregate_unit', 'day') }}"
+            time_zone: "{{ config.get('time_zone', 'Etc/UTC') }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/team_analytics"
   base_requester:
     type: HttpRequester
     url_base: https://api.pagerduty.com
@@ -212,6 +272,8 @@ streams:
   - $ref: "#/definitions/streams/oncalls"
   - $ref: "#/definitions/streams/users"
   - $ref: "#/definitions/streams/priorities"
+  - $ref: "#/definitions/streams/service_analytics"
+  - $ref: "#/definitions/streams/team_analytics"
 
 spec:
   type: Spec
@@ -297,6 +359,65 @@ spec:
         order: 7
         title: API key
         airbyte_secret: true
+      start_date:
+        type: string
+        description: Start date for analytics data (ISO 8601 format)
+        order: 8
+        title: Start Date
+        default: "2024-01-01T00:00:00Z"
+        examples:
+          - "2024-01-01T00:00:00Z"
+          - "2023-12-01T00:00:00-07:00"
+      end_date:
+        type: string
+        description: End date for analytics data (ISO 8601 format)
+        order: 9
+        title: End Date
+        default: "2024-12-31T23:59:59Z"
+        examples:
+          - "2024-12-31T23:59:59Z"
+          - "2024-01-31T23:59:59-07:00"
+      urgency:
+        type: string
+        description: Filter incidents by urgency level
+        order: 10
+        title: Incident Urgency Filter
+        enum:
+          - high
+          - low
+        examples:
+          - high
+          - low
+      major_incidents_only:
+        type: boolean
+        description: Only include major incidents in analytics
+        order: 11
+        title: Major Incidents Only
+        default: false
+      aggregate_unit:
+        type: string
+        description: Time unit for aggregating analytics data
+        order: 12
+        title: Aggregate Unit
+        default: "day"
+        enum:
+          - day
+          - week
+          - month
+        examples:
+          - day
+          - week
+          - month
+      time_zone:
+        type: string
+        description: Time zone for analytics data
+        order: 13
+        title: Time Zone
+        default: "Etc/UTC"
+        examples:
+          - "Etc/UTC"
+          - "America/New_York"
+          - "Europe/London"
     additionalProperties: true
 
 metadata:
@@ -308,6 +429,8 @@ metadata:
     oncalls: false
     users: false
     priorities: false
+    service_analytics: false
+    team_analytics: false
   yamlComponents:
     global:
       - authenticator
@@ -361,6 +484,20 @@ metadata:
       hasRecords: true
       primaryKeysArePresent: true
       primaryKeysAreUnique: true
+    service_analytics:
+      streamHash: null
+      hasResponse: false
+      responsesAreSuccessful: false
+      hasRecords: false
+      primaryKeysArePresent: false
+      primaryKeysAreUnique: false
+    team_analytics:
+      streamHash: null
+      hasResponse: false
+      responsesAreSuccessful: false
+      hasRecords: false
+      primaryKeysArePresent: false
+      primaryKeysAreUnique: false
   assist: {}
 
 schemas:
@@ -2051,3 +2188,107 @@ schemas:
           - "null"
           - string
     title: Priorities schema
+  service_analytics:
+    type:
+      - "null"
+      - object
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: true
+    properties:
+      service_id:
+        type:
+          - "null"
+          - string
+      service_name:
+        type:
+          - "null"
+          - string
+      time_period:
+        type:
+          - "null"
+          - string
+      start_time:
+        type:
+          - "null"
+          - string
+      end_time:
+        type:
+          - "null"
+          - string
+      total_incidents:
+        type:
+          - "null"
+          - number
+      total_high_urgency_incidents:
+        type:
+          - "null"
+          - number
+      total_low_urgency_incidents:
+        type:
+          - "null"
+          - number
+      mean_time_to_resolution:
+        type:
+          - "null"
+          - number
+      mean_time_to_acknowledgement:
+        type:
+          - "null"
+          - number
+      up_time_pct:
+        type:
+          - "null"
+          - number
+    title: Service Analytics Schema
+  team_analytics:
+    type:
+      - "null"
+      - object
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: true
+    properties:
+      team_id:
+        type:
+          - "null"
+          - string
+      team_name:
+        type:
+          - "null"
+          - string
+      time_period:
+        type:
+          - "null"
+          - string
+      start_time:
+        type:
+          - "null"
+          - string
+      end_time:
+        type:
+          - "null"
+          - string
+      total_incidents:
+        type:
+          - "null"
+          - number
+      total_high_urgency_incidents:
+        type:
+          - "null"
+          - number
+      total_low_urgency_incidents:
+        type:
+          - "null"
+          - number
+      mean_time_to_resolution:
+        type:
+          - "null"
+          - number
+      mean_time_to_acknowledgement:
+        type:
+          - "null"
+          - number
+      up_time_pct:
+        type:
+          - "null"
+          - number
+    title: Team Analytics Schema
